@@ -27,7 +27,7 @@ class Subscription
     /**
      * @var Collection<int, UserSubscriptions>
      */
-    #[ORM\OneToMany(targetEntity: UserSubscriptions::class, mappedBy: 'SubscriptionId')]
+    #[ORM\OneToMany(targetEntity: UserSubscription::class, mappedBy: 'SubscriptionId')]
     private Collection $userSubscriptions;
 
     public function __construct()
@@ -84,7 +84,7 @@ class Subscription
         return $this->userSubscriptions;
     }
 
-    public function addUserSubscription(UserSubscriptions $userSubscription): static
+    public function addUserSubscription(UserSubscription $userSubscription): static
     {
         if (!$this->userSubscriptions->contains($userSubscription)) {
             $this->userSubscriptions->add($userSubscription);
@@ -94,7 +94,7 @@ class Subscription
         return $this;
     }
 
-    public function removeUserSubscription(UserSubscriptions $userSubscription): static
+    public function removeUserSubscription(UserSubscription $userSubscription): static
     {
         if ($this->userSubscriptions->removeElement($userSubscription)) {
             // set the owning side to null (unless already changed)

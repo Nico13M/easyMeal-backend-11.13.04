@@ -2,12 +2,12 @@
 
 namespace App\Entity;
 
-use App\Repository\UserSubscriptionsRepository;
+use App\Repository\UserSubscriptionRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity(repositoryClass: UserSubscriptionsRepository::class)]
-class UserSubscriptions
+#[ORM\Entity(repositoryClass: UserSubscriptionRepository::class)]
+class UserSubscription
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

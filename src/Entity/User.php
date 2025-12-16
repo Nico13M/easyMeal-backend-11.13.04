@@ -37,7 +37,7 @@ class User implements PasswordAuthenticatedUserInterface, UserInterface
     /**
      * @var Collection<int, UserSubscriptions>
      */
-    #[ORM\OneToMany(targetEntity: UserSubscriptions::class, mappedBy: 'UserId')]
+    #[ORM\OneToMany(targetEntity: UserSubscription::class, mappedBy: 'UserId')]
     private Collection $userSubscriptions;
 
     public function __construct()
@@ -127,7 +127,7 @@ class User implements PasswordAuthenticatedUserInterface, UserInterface
         return $this->userSubscriptions;
     }
 
-    public function addUserSubscription(UserSubscriptions $userSubscription): static
+    public function addUserSubscription(UserSubscription $userSubscription): static
     {
         if (!$this->userSubscriptions->contains($userSubscription)) {
             $this->userSubscriptions->add($userSubscription);
@@ -137,7 +137,7 @@ class User implements PasswordAuthenticatedUserInterface, UserInterface
         return $this;
     }
 
-    public function removeUserSubscription(UserSubscriptions $userSubscription): static
+    public function removeUserSubscription(UserSubscription $userSubscription): static
     {
         if ($this->userSubscriptions->removeElement($userSubscription)) {
             // set the owning side to null (unless already changed)
