@@ -63,7 +63,7 @@ class AdminUserController extends AbstractController
 
         // Vérification CSRF
         $csrfToken = $request->headers->get('X-CSRF-TOKEN');
-        if (!$csrfService->isValid('api_user_edit_' . $user->getId(), $csrfToken)) {
+        if (!$csrfService->isValid('api', $csrfToken)) {
             return $this->json(['error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
         }
 
@@ -111,7 +111,7 @@ class AdminUserController extends AbstractController
 
         // Vérification CSRF
         $csrfToken = $request->headers->get('X-CSRF-TOKEN');
-        if (!$csrfService->isValid('api_user_delete_' . $user->getId(), $csrfToken)) {
+        if (!$csrfService->isValid('api', $csrfToken)) {
             return $this->json(['error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
         }
 
@@ -121,18 +121,4 @@ class AdminUserController extends AbstractController
         return $this->json(null, Response::HTTP_NO_CONTENT);
     }
 
-    // Endpoint pour générer le CSRF token côté front pour une action donnée
-    #[Route('/{id}/csrf-token/{action}', name: 'csrf_token', methods: ['GET'])]
-    public function csrfToken(User $user, string $action, CsrfService $csrfService): JsonResponse
-    {
-        $tokenId = match($action) {
-            'edit' => 'api_user_edit_' . $user->getId(),
-            'delete' => 'api_user_delete_' . $user->getId(),
-            default => 'api',
-        };
-
-        return $this->json([
-            'csrfToken' => $csrfService->generate($tokenId),
-        ]);
-    }
 }
