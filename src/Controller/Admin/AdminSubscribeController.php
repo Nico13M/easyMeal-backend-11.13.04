@@ -16,8 +16,8 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Annotation\Route;
 
-#[Route('/admin/subscribre', name: 'admin_subscribre_')]
-class AdminSubscribreController extends AbstractController
+#[Route('/admin/subscribe', name: 'admin_subscribre_')]
+class AdminSubscribeController extends AbstractController
 {
     public function __construct(private UserManager $userManager)
     {
@@ -39,14 +39,21 @@ class AdminSubscribreController extends AbstractController
        return $this->json($subcriptionList);
     }
 
-    #[Route('/{id}', name: 'show', methods: ['GET'])]
+    #[Route('/{id}/show', name: 'show', methods: ['GET'])]
     public function show(Request $request, int $id, SubscriptionRepository $subscriptionRepository): Response
     {
         $subscription = $subscriptionRepository->find($id);
         if (!$subscription) {
             return $this->json(['error' => 'Subscription not found'], 404);
         }
-        return $this->json($subscription);
+
+        $subscriptionData = [
+            'id' => $subscription->getId(),
+            'name' => $subscription->getName(),
+            'price' => $subscription->getPrice(),
+            'duration_months' => $subscription->getDurationMonths(),
+        ];
+        return $this->json($subscriptionData);
     }
 
     #[Route('/{id}/edit', name: 'edit', methods: ['PATCH'])] 
@@ -82,7 +89,13 @@ public function edit(
         $em->persist($subscription);
         $em->flush();
 
-        return $this->json($subscription);
+         $subscriptionData = [
+                'id' => $subscription->getId(),
+                'name' => $subscription->getName(),
+                'price' => $subscription->getPrice(),
+                'duration_months' => $subscription->getDurationMonths(),
+            ];
+        return $this->json($subscriptionData);
     }
 
     #[Route('/create', name: 'create', methods: ['POST'])]
@@ -113,5 +126,35 @@ public function edit(
 
         return new JsonResponse(['message' => 'Subscription created', 'id' => $subscription->getId()], 201);
     }
+
+    #[Route('/{id}/delete', name: 'delete', methods: ['DELETE'])]
+    public function delete(
+        Request $request,
+        int $id,
+        SubscriptionRepository $subscriptionRepository,
+        EntityManagerInterface $em,
+        CsrfService $csrfService
+    ): JsonResponse {
+        $subscription = $subscriptionRepository->find($id);
+
+        if (!$subscription) {
+            return $this->json(['error' => 'Subscription not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        // CSRF (header)
+        $csrfToken = $request->headers->get('X-CSRF-TOKEN');
+
+        if (!$csrfService->isValid('api', $csrfToken)) {
+            return $this->json(
+                ['error' => 'Invalid CSRF token'],
+                Response::HTTP_FORBIDDEN
+            );
+        }
+
+        $em->remove($subscription);
+        $em->flush();
+
+        return $this->json(null, Response::HTTP_NO_CONTENT);
+    }   
 
 }
