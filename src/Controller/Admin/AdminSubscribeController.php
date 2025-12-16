@@ -4,7 +4,7 @@ namespace App\Controller\Admin;
 
 use App\Entity\User;
 use App\Form\UserEditType;
-use App\Repository\SubscriptionRepository;
+use App\Service\SubscribeManager;
 use App\Repository\UserRepository;
 use App\Service\CsrfService;
 use App\Service\UserManager;
@@ -19,30 +19,21 @@ use Symfony\Component\Routing\Annotation\Route;
 #[Route('/admin/subscribe', name: 'admin_subscribre_')]
 class AdminSubscribeController extends AbstractController
 {
-    public function __construct(private UserManager $userManager)
+    public function __construct(private UserManager $userManager, private SubscribeManager $subscribeManager)
     {
     }
 
     #[Route('/', name: 'index', methods: ['GET'])]
-    public function index(Request $request, SubscriptionRepository $subscriptionRepository): Response
+    public function index(Request $request): Response
     {
-        $subcriptionList = $subscriptionRepository->findAll();
-
-        foreach ($subcriptionList as $key => $subscription) {
-            $subcriptionList[$key] = [
-                'id' => $subscription->getId(),
-                'name' => $subscription->getName(),
-                'price' => $subscription->getPrice(),
-                'duration_months' => $subscription->getDurationMonths(),
-            ];
-        }
-       return $this->json($subcriptionList);
+        $subcriptionList = $this->subscribeManager->listAll();
+        return $this->json($subcriptionList);
     }
 
     #[Route('/{id}/show', name: 'show', methods: ['GET'])]
-    public function show(Request $request, int $id, SubscriptionRepository $subscriptionRepository): Response
+    public function show(Request $request, int $id): Response
     {
-        $subscription = $subscriptionRepository->find($id);
+        $subscription = $this->subscribeManager->find($id);
         if (!$subscription) {
             return $this->json(['error' => 'Subscription not found'], 404);
         }
@@ -57,14 +48,12 @@ class AdminSubscribeController extends AbstractController
     }
 
     #[Route('/{id}/edit', name: 'edit', methods: ['PATCH'])] 
-public function edit(
+    public function edit(
         Request $request,
         int $id,
-        SubscriptionRepository $subscriptionRepository,
-        EntityManagerInterface $em,
         CsrfService $csrfService
     ): Response {
-        $subscription = $subscriptionRepository->find($id);
+        $subscription = $this->subscribeManager->find($id);
         if (!$subscription) {
             return $this->json(['error' => 'Subscription not found'], 404);
         }
@@ -76,30 +65,20 @@ public function edit(
         }
 
         $data = json_decode($request->getContent(), true);
-        if (isset($data['name'])) {
-            $subscription->setName($data['name']);
-        }
-        if (isset($data['price'])) {
-            $subscription->setPrice($data['price']);
-        }
-        if (isset($data['duration_months'])) {
-            $subscription->setDurationMonths($data['duration_months']);
-        }
+        $subscription = $this->subscribeManager->update($subscription, $data);
 
-        $em->persist($subscription);
-        $em->flush();
+        $subscriptionData = [
+            'id' => $subscription->getId(),
+            'name' => $subscription->getName(),
+            'price' => $subscription->getPrice(),
+            'duration_months' => $subscription->getDurationMonths(),
+        ];
 
-         $subscriptionData = [
-                'id' => $subscription->getId(),
-                'name' => $subscription->getName(),
-                'price' => $subscription->getPrice(),
-                'duration_months' => $subscription->getDurationMonths(),
-            ];
         return $this->json($subscriptionData);
     }
 
     #[Route('/create', name: 'create', methods: ['POST'])]
-    public function create(Request $request, EntityManagerInterface $em, CsrfService $csrfService): Response
+    public function create(Request $request, CsrfService $csrfService): Response
     {
         $data = json_decode($request->getContent(), true);
         $name = $data['name'] ?? '';
@@ -116,13 +95,7 @@ public function edit(
             return $this->json(['error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
         }
 
-        $subscription = new \App\Entity\Subscription();
-        $subscription->setName($name);
-        $subscription->setPrice($price);
-        $subscription->setDurationMonths($durationMonths);
-
-        $em->persist($subscription);
-        $em->flush();
+        $subscription = $this->subscribeManager->create($name, $price, $durationMonths);
 
         return new JsonResponse(['message' => 'Subscription created', 'id' => $subscription->getId()], 201);
     }
@@ -131,11 +104,9 @@ public function edit(
     public function delete(
         Request $request,
         int $id,
-        SubscriptionRepository $subscriptionRepository,
-        EntityManagerInterface $em,
         CsrfService $csrfService
     ): JsonResponse {
-        $subscription = $subscriptionRepository->find($id);
+        $subscription = $this->subscribeManager->find($id);
 
         if (!$subscription) {
             return $this->json(['error' => 'Subscription not found'], Response::HTTP_NOT_FOUND);
@@ -151,8 +122,7 @@ public function edit(
             );
         }
 
-        $em->remove($subscription);
-        $em->flush();
+        $this->subscribeManager->delete($subscription);
 
         return $this->json(null, Response::HTTP_NO_CONTENT);
     }   
