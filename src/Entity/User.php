@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Gedmo\Timestampable\Traits\TimestampableEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -31,6 +33,17 @@ class User implements PasswordAuthenticatedUserInterface, UserInterface
 
     #[ORM\Column(length: 255)]
     private ?string $password_hash = null;
+
+    /**
+     * @var Collection<int, UserSubscriptions>
+     */
+    #[ORM\OneToMany(targetEntity: UserSubscriptions::class, mappedBy: 'UserId')]
+    private Collection $userSubscriptions;
+
+    public function __construct()
+    {
+        $this->userSubscriptions = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -104,5 +117,35 @@ class User implements PasswordAuthenticatedUserInterface, UserInterface
     public function eraseCredentials(): void
     {
         // If you store any temporary sensitive data on the user, clear it here
+    }
+
+    /**
+     * @return Collection<int, UserSubscriptions>
+     */
+    public function getUserSubscriptions(): Collection
+    {
+        return $this->userSubscriptions;
+    }
+
+    public function addUserSubscription(UserSubscriptions $userSubscription): static
+    {
+        if (!$this->userSubscriptions->contains($userSubscription)) {
+            $this->userSubscriptions->add($userSubscription);
+            $userSubscription->setUserId($this);
+        }
+
+        return $this;
+    }
+
+    public function removeUserSubscription(UserSubscriptions $userSubscription): static
+    {
+        if ($this->userSubscriptions->removeElement($userSubscription)) {
+            // set the owning side to null (unless already changed)
+            if ($userSubscription->getUserId() === $this) {
+                $userSubscription->setUserId(null);
+            }
+        }
+
+        return $this;
     }
 }
