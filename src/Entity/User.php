@@ -40,9 +40,16 @@ class User implements PasswordAuthenticatedUserInterface, UserInterface
     #[ORM\OneToMany(targetEntity: UserSubscription::class, mappedBy: 'UserId')]
     private Collection $userSubscriptions;
 
+    /**
+     * @var Collection<int, Diet>
+     */
+    #[ORM\ManyToMany(targetEntity: Diet::class, mappedBy: 'user_has_diet')]
+    private Collection $diets;
+
     public function __construct()
     {
         $this->userSubscriptions = new ArrayCollection();
+        $this->diets = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -144,6 +151,33 @@ class User implements PasswordAuthenticatedUserInterface, UserInterface
             if ($userSubscription->getUserId() === $this) {
                 $userSubscription->setUserId(null);
             }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Diet>
+     */
+    public function getDiets(): Collection
+    {
+        return $this->diets;
+    }
+
+    public function addDiet(Diet $diet): static
+    {
+        if (!$this->diets->contains($diet)) {
+            $this->diets->add($diet);
+            $diet->addUserHasDiet($this);
+        }
+
+        return $this;
+    }
+
+    public function removeDiet(Diet $diet): static
+    {
+        if ($this->diets->removeElement($diet)) {
+            $diet->removeUserHasDiet($this);
         }
 
         return $this;
