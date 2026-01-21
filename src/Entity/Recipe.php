@@ -7,11 +7,10 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-// 👇 Import de Gedmo
 use Gedmo\Mapping\Annotation as Gedmo;
 use Gedmo\Timestampable\Traits\TimestampableEntity;
-// 👇 Import de l'entité User (Indispensable pour la relation)
 use App\Entity\User; 
+use App\Entity\RecipeIngredient;
 
 #[ORM\Entity(repositoryClass: RecipeRepository::class)]
 class Recipe
@@ -26,7 +25,7 @@ class Recipe
     #[ORM\Column(length: 255)]
     private ?string $name = null;
 
-    #[ORM\Column(length: 255, unique: true)] // J'ai ajouté unique: true
+    #[ORM\Column(length: 255, unique: true)]
     #[Gedmo\Slug(fields: ['name'])]
     private ?string $slug = null;
 
@@ -45,21 +44,25 @@ class Recipe
     #[ORM\Column]
     private ?bool $is_public = null;
 
-    // 👇 AJOUT DE LA RELATION USER 👇
+    // --- RELATION USER ---
     #[ORM\ManyToOne(inversedBy: 'recipes')]
-    #[ORM\JoinColumn(nullable: false)] // Une recette DOIT avoir un auteur
+    #[ORM\JoinColumn(nullable: false)]
     private ?User $user = null;
 
+    // --- RELATION INGRÉDIENTS (La seule, l'unique !) ---
     /**
      * @var Collection<int, RecipeIngredient>
      */
-    #[ORM\OneToMany(targetEntity: RecipeIngredient::class, mappedBy: 'recipe', orphanRemoval: true)]
-    private Collection $ingredient;
+    #[ORM\OneToMany(mappedBy: 'recipe', targetEntity: RecipeIngredient::class, orphanRemoval: true)]
+    private Collection $recipeIngredients;
 
+    // --- CONSTRUCTEUR UNIQUE ---
     public function __construct()
     {
-        $this->ingredient = new ArrayCollection();
+        $this->recipeIngredients = new ArrayCollection();
     }
+
+    // --- GETTERS & SETTERS ---
 
     public function getId(): ?int
     {
@@ -74,7 +77,6 @@ class Recipe
     public function setName(string $name): static
     {
         $this->name = $name;
-
         return $this;
     }
 
@@ -86,7 +88,6 @@ class Recipe
     public function setSlug(string $slug): static
     {
         $this->slug = $slug;
-
         return $this;
     }
 
@@ -98,7 +99,6 @@ class Recipe
     public function setDescription(string $description): static
     {
         $this->description = $description;
-
         return $this;
     }
 
@@ -110,7 +110,6 @@ class Recipe
     public function setImage(?string $image): static
     {
         $this->image = $image;
-
         return $this;
     }
 
@@ -122,7 +121,6 @@ class Recipe
     public function setServings(int $servings): static
     {
         $this->servings = $servings;
-
         return $this;
     }
 
@@ -134,7 +132,6 @@ class Recipe
     public function setDuration(?int $duration): static
     {
         $this->duration = $duration;
-
         return $this;
     }
 
@@ -146,11 +143,9 @@ class Recipe
     public function setIsPublic(bool $is_public): static
     {
         $this->is_public = $is_public;
-
         return $this;
     }
 
-    // 👇 GETTER ET SETTER POUR USER 👇
     public function getUser(): ?User
     {
         return $this->user;
@@ -159,34 +154,35 @@ class Recipe
     public function setUser(?User $user): static
     {
         $this->user = $user;
-
         return $this;
     }
+
+    // --- GESTION DES INGRÉDIENTS ---
 
     /**
      * @return Collection<int, RecipeIngredient>
      */
-    public function getIngredient(): Collection
+    public function getRecipeIngredients(): Collection
     {
-        return $this->ingredient;
+        return $this->recipeIngredients;
     }
 
-    public function addIngredient(RecipeIngredient $ingredient): static
+    public function addRecipeIngredient(RecipeIngredient $recipeIngredient): static
     {
-        if (!$this->ingredient->contains($ingredient)) {
-            $this->ingredient->add($ingredient);
-            $ingredient->setRecipe($this);
+        if (!$this->recipeIngredients->contains($recipeIngredient)) {
+            $this->recipeIngredients->add($recipeIngredient);
+            $recipeIngredient->setRecipe($this);
         }
 
         return $this;
     }
 
-    public function removeIngredient(RecipeIngredient $ingredient): static
+    public function removeRecipeIngredient(RecipeIngredient $recipeIngredient): static
     {
-        if ($this->ingredient->removeElement($ingredient)) {
+        if ($this->recipeIngredients->removeElement($recipeIngredient)) {
             // set the owning side to null (unless already changed)
-            if ($ingredient->getRecipe() === $this) {
-                $ingredient->setRecipe(null);
+            if ($recipeIngredient->getRecipe() === $this) {
+                // $recipeIngredient->setRecipe(null); // Pas nécessaire car non-nullable
             }
         }
 
