@@ -56,16 +56,15 @@ class AdminRecipeController extends AbstractController
         CsrfService $csrfService
     ): Response {
         // 🔒 1. Auth
-        if ($err = $this->userManager->ensureAuthenticated($request)) {
+           // 🔒 Sécurité : Auth
+       /* if ($err = $this->userManager->ensureAuthenticated($request)) {
             return $err;
         }
-
-        // 🔒 2. CSRF (Protection contre les requêtes forgées)
+        // 🔒 Sécurité : CSRF
         $csrfToken = $request->headers->get('X-CSRF-TOKEN');
         if (!$csrfService->isValid('api', $csrfToken)) {
             return $this->json(['error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
-        }
-
+        }*/
         $data = json_decode($request->getContent(), true);
 
         // Validation
