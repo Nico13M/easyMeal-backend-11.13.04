@@ -1,7 +1,7 @@
 doctrine:
     dbal:
         url: '%env(resolve:DATABASE_URL)%'
-        schema_filter: ~^(?!auth\.|storage\.|realtime\.|graphql\.|extensions\.)~
+        schema_filter: ~^(?!auth\.|storage\.|realtime\.|graphql\.|extensions\.|diet|subscription|units|user_subscription|diet_user)~
         mapping_types:
             code_challenge_method: string
             factor_type: string
