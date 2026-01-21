@@ -1,6 +1,7 @@
 doctrine:
     dbal:
         url: '%env(resolve:DATABASE_URL)%'
+        schema_filter: ~^(?!auth\.|storage\.|realtime\.|graphql\.|extensions\.)~
         mapping_types:
             code_challenge_method: string
             factor_type: string
@@ -16,7 +17,6 @@ doctrine:
             one_time_token_type: string
             oauth_client_type: string
             oauth_authorization_status: string
-            schema_filter: ~^(?!auth\.|storage\.|realtime\.|graphql\.|extensions\.)~
         # IMPORTANT: You MUST configure your server version,
         # either here or in the DATABASE_URL env var (see .env file)
         #server_version: '16'
