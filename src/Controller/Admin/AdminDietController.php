@@ -6,7 +6,7 @@ use App\Entity\Diet;
 use App\Entity\User;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use App\Service\DietManager;
 use App\Service\CsrfService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
