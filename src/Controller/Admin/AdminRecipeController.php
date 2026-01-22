@@ -4,11 +4,11 @@ namespace App\Controller\Admin;
 
 use App\Entity\Recipe;
 use App\Repository\RecipeRepository;
-use App\Repository\IngredientRepository;
 use App\Service\UserDataService;
 use App\Service\DataService;
 use App\Service\UserManager;
 use App\Service\RecipeService;
+use App\Service\RecipeSearchService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -27,7 +27,7 @@ class AdminRecipeController extends AbstractController
         private RecipeService $recipeService,
         private UserDataService $userDataService,
         private DataService $dataService,
-        private IngredientRepository $ingredientRepository
+        private RecipeSearchService $recipeSearchService
     ) {}
 
     // LISTE (GET)
@@ -165,8 +165,7 @@ class AdminRecipeController extends AbstractController
     #[Route('/search', name: 'search', methods: ['GET'])]
     public function search(Request $request): Response
     {
-
-        // 1) Récupérer l'utilisateur connecté 
+        // Vérifier l'authentification
         if ($err = $this->userManager->ensureAuthenticated($request)) {
             return $err;
         }
@@ -174,76 +173,21 @@ class AdminRecipeController extends AbstractController
         $user = $this->getUser();
         assert($user instanceof \App\Entity\User);
 
-
-        // 2) Récupérer les ingrédients blacklist par l'utilisateur
-        $blacklistIds = $user->getUserIngredientsBlacklist()->map(fn($i) => $i->getId())->toArray();
-
-        // 3) Récupérer les régimes de l'utilisateur
-        $dietIds = $user->getDiets()->map(fn($d) => $d->getId())->toArray();
-
-        // 4) Gestion des ingrédients
-        $frigo = $request->query->get('frigo', false);
-        $frigoIngredientIds = [];
-
-        // Si frigo est vrai, on récupère les ingrédients du frigo
-        if ($frigo) {
-            if ($user->getFrigo()) {
-                $frigoIngredients = $user->getFrigo()->getIngredientsHasFrigo()->map(fn($i) => [
-                    'id' => $i->getId(),
-                    'name' => $i->getName()
-                ])->toArray();
-            }
-        }
-
-        // Qu'il soit vrai ou faux, on regarde ingredientsForm pour les ingrédients supplémentaires
-        $ingredientsForm = [];
-        $ingredientsFormParam = $request->query->get('ingredientsForm', '');
-        if (!empty($ingredientsFormParam)) {
-            // ingredientsForm peut être une chaîne JSON ou une liste d'IDs séparés par des virgules
-            if (str_starts_with($ingredientsFormParam, '[')) {
-                // C'est du JSON avec des objets {id, name}
-                $ingredientsForm = json_decode($ingredientsFormParam, true) ?? [];
-            } else {
-                // C'est une liste séparés par des virgules - on récupère les objets complets depuis la DB
-                $ids = array_map('intval', explode(',', $ingredientsFormParam));
-                $ingredients = $this->ingredientRepository->findByIds($ids);
-                $ingredientsForm = array_map(fn($ingredient) => [
-                    'id' => $ingredient->getId(),
-                    'name' => $ingredient->getName()
-                ], $ingredients);
-            }
-        }
-
-        // Combiner les ingrédients du frigo et ceux du formulaire
-        $allIngredients = array_merge($frigoIngredients, $ingredientsForm);
-
-        // 5) On envoi ses informations via le DataService qui va envoyé les données à un endpoint
-        $searchData = [
-            'blacklist_ids' => $blacklistIds,
-            'diet_ids' => $dietIds,
-            'frigo_ingredients' => $frigoIngredients,
-            'form_ingredients' => $ingredientsForm,
-            'all_ingredients' => $allIngredients,
-        ];
-
-        // Créer un service spécifique pour la recherche ou utiliser DataService
-        $result = $this->dataService->sendSearchData($searchData, $user->getId());
+        // Effectuer la recherche via le service
+        $result = $this->recipeSearchService->searchRecipes($user, $request);
 
         if (!$result['success']) {
             return $this->json([
                 'error' => 'Erreur lors de la recherche de recettes',
-                'details' => $result['error'] ?? 'Erreur inconnue'
+                'details' => $result['error']
             ], 500);
         }
 
-        // 6) Le endpoint va renvoyer la recette ou les recettes à l'utilisateur
-        $recipesData = $result['data']['recipes'] ?? [];
-
-        // 7) On renvoit en json les réponses pour que le front puisse récupérer la recette
+        // Retourner les résultats
         return $this->json([
-            'recipes' => $recipesData,
-            'search_criteria' => $searchData,
-            'total_results' => count($recipesData)
+            'recipes' => $result['recipes'],
+            'search_criteria' => $result['search_criteria'],
+            'total_results' => $result['total_results']
         ]);
     }
 
