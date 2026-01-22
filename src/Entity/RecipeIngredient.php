@@ -19,7 +19,7 @@ class RecipeIngredient
     #[ORM\Column(length: 20, nullable: true)]
     private ?string $unit = null;
 
-    #[ORM\ManyToOne(inversedBy: 'ingredient')]
+    #[ORM\ManyToOne(inversedBy: 'recipeIngredients')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Recipe $recipe = null;
 
