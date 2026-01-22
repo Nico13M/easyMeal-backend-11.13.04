@@ -40,4 +40,18 @@ class IngredientRepository extends ServiceEntityRepository
     //            ->getOneOrNullResult()
     //        ;
     //    }
+
+    /**
+     * @param array $ids
+     * @return Ingredient[]
+     */
+    public function findByIds(array $ids): array
+    {
+        return $this->createQueryBuilder('i')
+            ->andWhere('i.id IN (:ids)')
+            ->setParameter('ids', $ids)
+            ->orderBy('i.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

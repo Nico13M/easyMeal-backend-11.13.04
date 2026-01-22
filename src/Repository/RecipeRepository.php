@@ -31,7 +31,7 @@ class RecipeRepository extends ServiceEntityRepository
     //        ;
     //    }
 
-    public function findRecipesExcludingIngredientsAndMatchingDiets(array $blacklistIngredientIds, array $dietIds): array
+    public function findRecipesExcludingIngredientsAndMatchingDiets(array $blacklistIngredientIds, array $dietIds, array $frigoIngredientIds = []): array
     {
         $qb = $this->createQueryBuilder('r')
             ->leftJoin('r.recipeIngredients', 'ri')
@@ -61,6 +61,30 @@ class RecipeRepository extends ServiceEntityRepository
                 ->setParameter('dietIds', $dietIds);
         }
 
-        return $qb->getQuery()->getResult();
+        $qb->orderBy('r.created_at', 'DESC');
+
+        $recipes = $qb->getQuery()->getResult();
+
+        // Si on a des ingrédients du frigo, trier les recettes par nombre d'ingrédients disponibles
+        if (!empty($frigoIngredientIds)) {
+            usort($recipes, function($a, $b) use ($frigoIngredientIds) {
+                $aCount = $this->countMatchingIngredients($a, $frigoIngredientIds);
+                $bCount = $this->countMatchingIngredients($b, $frigoIngredientIds);
+                return $bCount <=> $aCount; // Tri décroissant
+            });
+        }
+
+        return $recipes;
+    }
+
+    private function countMatchingIngredients(Recipe $recipe, array $frigoIngredientIds): int
+    {
+        $count = 0;
+        foreach ($recipe->getRecipeIngredients() as $recipeIngredient) {
+            if (in_array($recipeIngredient->getIngredient()->getId(), $frigoIngredientIds)) {
+                $count++;
+            }
+        }
+        return $count;
     }
 }

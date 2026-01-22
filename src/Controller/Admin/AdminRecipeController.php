@@ -4,8 +4,11 @@ namespace App\Controller\Admin;
 
 use App\Entity\Recipe;
 use App\Repository\RecipeRepository;
-use App\Service\CsrfService;
+use App\Service\UserDataService;
+use App\Service\DataService;
 use App\Service\UserManager;
+use App\Service\RecipeService;
+use App\Service\RecipeSearchService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -19,9 +22,13 @@ use Symfony\Component\Validator\Constraints\Collection;
 #[Route('/admin/recipes', name: 'admin_recipe_')]
 class AdminRecipeController extends AbstractController
 {
-    public function __construct(private UserManager $userManager)
-    {
-    }
+    public function __construct(
+        private UserManager $userManager,
+        private RecipeService $recipeService,
+        private UserDataService $userDataService,
+        private DataService $dataService,
+        private RecipeSearchService $recipeSearchService
+    ) {}
 
     // LISTE (GET)
     #[Route('/', name: 'index', methods: ['GET'])]
@@ -33,7 +40,7 @@ class AdminRecipeController extends AbstractController
 
         $recipes = $recipeRepository->findAll();
         // On transforme chaque recette en tableau propre
-        $data = array_map(fn(Recipe $r) => $this->serializeRecipe($r), $recipes);
+        $data = array_map(fn(Recipe $r) => $this->recipeService->serializeRecipe($r), $recipes);
 
         return $this->json($data);
     }
@@ -46,65 +53,31 @@ class AdminRecipeController extends AbstractController
             return $err;
         }
 
-        return $this->json($this->serializeRecipe($recipe));
+        return $this->json($this->recipeService->serializeRecipe($recipe));
     }
 
     // CRÉATION (POST)
    #[Route('/', name: 'create', methods: ['POST'])]
-    public function create(
-        Request $request,
-        EntityManagerInterface $em,
-        CsrfService $csrfService
-    ): Response {
+    public function create(Request $request): Response
+    {
         // 🔒 Sécurité (On la garde, mais elle échouera silencieusement si pas connecté, c'est pas grave pour le test avec ID manuel)
         // if ($err = $this->userManager->ensureAuthenticated($request)) { return $err; }
 
         $data = json_decode($request->getContent(), true);
 
-        // 1. Validation des champs obligatoires
-        if (empty($data['name'])) {
-            return $this->json(['error' => 'Le nom de la recette est obligatoire'], 400);
+        // Récupération de l'utilisateur connecté (fallback)
+        $user = $this->getUser();
+
+        // Créer la recette via le service
+        $result = $this->recipeService->createRecipe($data, $user);
+
+        // Si c'est une erreur, la retourner
+        if ($result instanceof JsonResponse) {
+            return $result;
         }
 
-        // 2. RECUPERATION DE L'UTILISATEUR 👤
-        // On regarde si un ID est fourni dans le JSON
-        $user = null;
-        if (isset($data['user_id'])) {
-            $user = $em->getRepository(User::class)->find($data['user_id']);
-        } 
-        // Sinon, on essaie de prendre l'utilisateur connecté (fallback)
-        else {
-            $user = $this->getUser();
-        }
-
-        // Si on a trouvé personne => Erreur
-        if (!$user) {
-            return $this->json(['error' => 'Utilisateur introuvable. Veuillez fournir un "user_id" valide.'], 404);
-        }
-
-        // 3. Création de la recette
-        $recipe = new Recipe();
-        $recipe->setName($data['name']);
-        $recipe->setDescription($data['description'] ?? '');
-        $recipe->setImage($data['image'] ?? null);
-        $recipe->setServings($data['servings'] ?? 4);
-        $recipe->setDuration($data['duration'] ?? null);
-        $recipe->setIsPublic($data['is_public'] ?? false);
-    
-        foreach ($data['diets_has_recipe'] ?? [] as $dietId) {
-            $diet = $em->getRepository(\App\Entity\Diet::class)->find($dietId);
-            if ($diet) {
-                $recipe->addDietsHasRecipe($diet);
-            }
-        }
-
-        // On assigne l'utilisateur trouvé
-        $recipe->setUser($user);
-
-        $em->persist($recipe);
-        $em->flush();
-
-        return $this->json($this->serializeRecipe($recipe), 201);
+        // Sinon, sérialiser et retourner la recette créée
+        return $this->json($this->recipeService->serializeRecipe($result), 201);
     }
 
     // MODIFICATION (PATCH)
@@ -147,7 +120,7 @@ class AdminRecipeController extends AbstractController
 
         $em->flush();
 
-        return $this->json($this->serializeRecipe($recipe));
+        return $this->json($this->recipeService->serializeRecipe($recipe));
     }
 
     //  SUPPRESSION (DELETE)
@@ -165,43 +138,6 @@ class AdminRecipeController extends AbstractController
         $em->flush();
 
         return $this->json(['message' => 'Recette supprimée'], 204);
-    }
-
-    /**
-     * Formate la recette en tableau JSON
-     */
-    private function serializeRecipe(Recipe $recipe): array
-    {
-        return [
-            'id' => $recipe->getId(),
-            'name' => $recipe->getName(),
-            'slug' => $recipe->getSlug(),
-            'description' => $recipe->getDescription(),
-            'image' => $recipe->getImage(),
-            'servings' => $recipe->getServings(),
-            'duration' => $recipe->getDuration(),
-            'is_public' => $recipe->isPublic(),
-            'created_at' => $recipe->getCreatedAt()?->format('Y-m-d H:i:s'),
-            'diets_has_recipe' => array_map(fn($diet) => [
-                'id' => $diet->getId(),
-                'name' => $diet->getName(),
-                'slug' => $diet->getSlug()
-            ], $recipe->getDietsHasRecipe()->toArray()),
-            'author' => [
-                'id' => $recipe->getUser()?->getId(),
-                'email' => $recipe->getUser()?->getEmail(),
-                'firstname' => $recipe->getUser()?->getFirstname(),
-                'lastname' => $recipe->getUser()?->getLastname(),
-            ],'ingredients' => array_map(function($link) {
-                return [
-                    'id' => $link->getIngredient()->getId(),
-                    'name' => $link->getIngredient()->getName(),
-                    'slug' => $link->getIngredient()->getSlug(),
-                    'quantity' => $link->getQuantity(),
-                    'unit' => $link->getUnit(),
-                ];
-            }, $recipe->getRecipeIngredients()->toArray())
-        ];
     }
 
     // RÉCUPÉRER LES INGRÉDIENTS BLACKLIST DE L'UTILISATEUR 
@@ -225,10 +161,11 @@ class AdminRecipeController extends AbstractController
         return $this->json($data);
     }
 
-    // RECHERCHE DE RECETTES AVEC BLACKLIST ET DIETS 
+    // RECHERCHE DE RECETTES AVEC BLACKLIST ET DIETS
     #[Route('/search', name: 'search', methods: ['GET'])]
-    public function search(Request $request, RecipeRepository $recipeRepository): Response
+    public function search(Request $request): Response
     {
+        // Vérifier l'authentification
         if ($err = $this->userManager->ensureAuthenticated($request)) {
             return $err;
         }
@@ -236,19 +173,22 @@ class AdminRecipeController extends AbstractController
         $user = $this->getUser();
         assert($user instanceof \App\Entity\User);
 
-        // Récupérer les IDs des ingrédients blacklist
-        $blacklistIds = $user->getUserIngredientsBlacklist()->map(fn($i) => $i->getId())->toArray();
+        // Effectuer la recherche via le service
+        $result = $this->recipeSearchService->searchRecipes($user, $request);
 
-        // Récupérer les IDs des diets de l'utilisateur
-        $dietIds = $user->getDiets()->map(fn($d) => $d->getId())->toArray();
+        if (!$result['success']) {
+            return $this->json([
+                'error' => 'Erreur lors de la recherche de recettes',
+                'details' => $result['error']
+            ], 500);
+        }
 
-        // Trouver les recettes correspondantes
-        $recipes = $recipeRepository->findRecipesExcludingIngredientsAndMatchingDiets($blacklistIds, $dietIds);
-
-        // Sérialiser les recettes
-        $data = array_map(fn(Recipe $r) => $this->serializeRecipe($r), $recipes);
-
-        return $this->json($data);
+        // Retourner les résultats
+        return $this->json([
+            'recipes' => $result['recipes'],
+            'search_criteria' => $result['search_criteria'],
+            'total_results' => $result['total_results']
+        ]);
     }
 
     // AJOUTER UNE RECETTE AUX FAVORIS
@@ -318,9 +258,40 @@ class AdminRecipeController extends AbstractController
         $favorites = $user->getUserRecipePreferences();
 
         // Sérialiser les recettes
-        $data = array_map(fn(Recipe $r) => $this->serializeRecipe($r), $favorites->toArray());
+        $data = array_map(fn(Recipe $r) => $this->recipeService->serializeRecipe($r), $favorites->toArray());
 
         return $this->json($data);
+    }
+
+    // ENVOYER LES DONNÉES UTILISATEUR À L'API EXTERNE
+    #[Route('/user/data/send', name: 'send_user_data', methods: ['POST'])]
+    public function sendUserData(Request $request): Response
+    {
+        if ($err = $this->userManager->ensureAuthenticated($request)) {
+            return $err;
+        }
+
+        $user = $this->getUser();
+        assert($user instanceof \App\Entity\User);
+
+        // Récupérer les données utilisateur via le service
+        $userData = $this->userDataService->getUserData($user);
+
+        // Envoyer les données à l'API externe via le service DATA
+        $result = $this->dataService->sendUserData($userData, $user->getId());
+
+        if ($result['success']) {
+            return $this->json([
+                'message' => 'Données utilisateur envoyées avec succès',
+                'status_code' => $result['status_code'],
+                'response' => $result['data'] ?? null
+            ], 200);
+        } else {
+            return $this->json([
+                'error' => 'Erreur lors de l\'envoi des données',
+                'details' => $result['error'] ?? 'Erreur inconnue'
+            ], 500);
+        }
     }
     
 }
