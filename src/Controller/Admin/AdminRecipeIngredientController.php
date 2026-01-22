@@ -11,7 +11,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
+
 
 #[Route('/admin/recipe-ingredients', name: 'admin_recipe_ingredient_')]
 class AdminRecipeIngredientController extends AbstractController
@@ -20,18 +21,16 @@ class AdminRecipeIngredientController extends AbstractController
     {
     }
 
-    // --- 1. AJOUTER UN INGRÉDIENT À UNE RECETTE (POST) ---
+    // AJOUTER UN INGRÉDIENT À UNE RECETTE (POST)
     #[Route('/', name: 'create', methods: ['POST'])]
     public function create(
         Request $request,
         EntityManagerInterface $em,
         CsrfService $csrfService
     ): Response {
-        // 🔒 Sécurité : Auth
         if ($err = $this->userManager->ensureAuthenticated($request)) {
             return $err;
         }
-        // 🔒 Sécurité : CSRF
         $csrfToken = $request->headers->get('X-CSRF-TOKEN');
         if (!$csrfService->isValid('api', $csrfToken)) {
             return $this->json(['error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
@@ -71,7 +70,7 @@ class AdminRecipeIngredientController extends AbstractController
         ], 201);
     }
 
-    // --- 2. RETIRER UN INGRÉDIENT (DELETE) ---
+    // RETIRER UN INGRÉDIENT (DELETE)
     #[Route('/{id}/delete', name: 'delete', methods: ['DELETE'])]
     public function delete(
         Request $request,
@@ -79,7 +78,6 @@ class AdminRecipeIngredientController extends AbstractController
         EntityManagerInterface $em,
         CsrfService $csrfService
     ): Response {
-        // 🔒 Sécurité
         if ($err = $this->userManager->ensureAuthenticated($request)) {
             return $err;
         }

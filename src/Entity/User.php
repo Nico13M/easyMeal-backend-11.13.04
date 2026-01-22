@@ -46,10 +46,27 @@ class User implements PasswordAuthenticatedUserInterface, UserInterface
     #[ORM\ManyToMany(targetEntity: Diet::class, mappedBy: 'user_has_diet')]
     private Collection $diets;
 
+    /**
+     * @var Collection<int, Ingredient>
+     */
+    #[ORM\ManyToMany(targetEntity: Ingredient::class, inversedBy: 'users')]
+    private Collection $user_ingredients_blacklist;
+
+    /**
+     * @var Collection<int, Recipe>
+     */
+    #[ORM\ManyToMany(targetEntity: Recipe::class, inversedBy: 'user_recipe_preferences')]
+    private Collection $user_recipe_preferences;
+
+    #[ORM\OneToOne(mappedBy: 'user_frigo', cascade: ['persist', 'remove'])]
+    private ?Frigo $frigo = null;
+
     public function __construct()
     {
         $this->userSubscriptions = new ArrayCollection();
         $this->diets = new ArrayCollection();
+        $this->user_ingredients_blacklist = new ArrayCollection();
+        $this->user_recipe_preferences = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -179,6 +196,76 @@ class User implements PasswordAuthenticatedUserInterface, UserInterface
         if ($this->diets->removeElement($diet)) {
             $diet->removeUserHasDiet($this);
         }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Ingredient>
+     */
+    public function getUserIngredientsBlacklist(): Collection
+    {
+        return $this->user_ingredients_blacklist;
+    }
+
+    public function addUserIngredientsBlacklist(Ingredient $userIngredientsBlacklist): static
+    {
+        if (!$this->user_ingredients_blacklist->contains($userIngredientsBlacklist)) {
+            $this->user_ingredients_blacklist->add($userIngredientsBlacklist);
+        }
+
+        return $this;
+    }
+
+    public function removeUserIngredientsBlacklist(Ingredient $userIngredientsBlacklist): static
+    {
+        $this->user_ingredients_blacklist->removeElement($userIngredientsBlacklist);
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Recipe>
+     */
+    public function getUserRecipePreferences(): Collection
+    {
+        return $this->user_recipe_preferences;
+    }
+
+    public function addUserRecipePreference(Recipe $user_recipe_preference): static
+    {
+        if (!$this->user_recipe_preferences->contains($user_recipe_preference)) {
+            $this->user_recipe_preferences->add($user_recipe_preference);
+        }
+
+        return $this;
+    }
+
+    public function removeUserRecipePreference(Recipe $user_recipe_preference): static
+    {
+        $this->user_recipe_preferences->removeElement($user_recipe_preference);
+
+        return $this;
+    }
+
+    public function getFrigo(): ?Frigo
+    {
+        return $this->frigo;
+    }
+
+    public function setFrigo(?Frigo $frigo): static
+    {
+        // unset the owning side of the relation if necessary
+        if ($frigo === null && $this->frigo !== null) {
+            $this->frigo->setUserFrigo(null);
+        }
+
+        // set the owning side of the relation if necessary
+        if ($frigo !== null && $frigo->getUserFrigo() !== $this) {
+            $frigo->setUserFrigo($this);
+        }
+
+        $this->frigo = $frigo;
 
         return $this;
     }

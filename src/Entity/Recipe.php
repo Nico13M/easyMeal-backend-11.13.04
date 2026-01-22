@@ -44,25 +44,36 @@ class Recipe
     #[ORM\Column]
     private ?bool $is_public = null;
 
-    // --- RELATION USER ---
-    #[ORM\ManyToOne(inversedBy: 'recipes')]
+    #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $user = null;
 
-    // --- RELATION INGRÉDIENTS (La seule, l'unique !) ---
     /**
      * @var Collection<int, RecipeIngredient>
      */
     #[ORM\OneToMany(mappedBy: 'recipe', targetEntity: RecipeIngredient::class, orphanRemoval: true)]
     private Collection $recipeIngredients;
 
-    // --- CONSTRUCTEUR UNIQUE ---
+    /**
+     * @var Collection<int, Diet>
+     */
+    #[ORM\ManyToMany(targetEntity: Diet::class, inversedBy: 'recipes')]
+    private Collection $diets_has_recipe;
+
+    /**
+     * @var Collection<int, User>
+     */
+    #[ORM\ManyToMany(targetEntity: User::class, mappedBy: 'user_recipe_preferences')]
+    private Collection $user_recipe_preferences;   
+
     public function __construct()
     {
         $this->recipeIngredients = new ArrayCollection();
+        $this->diets_has_recipe = new ArrayCollection();
+        $this->user_recipe_preferences = new ArrayCollection();
     }
 
-    // --- GETTERS & SETTERS ---
+    
 
     public function getId(): ?int
     {
@@ -157,8 +168,6 @@ class Recipe
         return $this;
     }
 
-    // --- GESTION DES INGRÉDIENTS ---
-
     /**
      * @return Collection<int, RecipeIngredient>
      */
@@ -185,6 +194,54 @@ class Recipe
                 // $recipeIngredient->setRecipe(null); // Pas nécessaire car non-nullable
             }
         }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Diet>
+     */
+    public function getDietsHasRecipe(): Collection
+    {
+        return $this->diets_has_recipe;
+    }
+
+    public function addDietsHasRecipe(Diet $dietsHasRecipe): static
+    {
+        if (!$this->diets_has_recipe->contains($dietsHasRecipe)) {
+            $this->diets_has_recipe->add($dietsHasRecipe);
+        }
+
+        return $this;
+    }
+
+    public function removeDietsHasRecipe(Diet $dietsHasRecipe): static
+    {
+        $this->diets_has_recipe->removeElement($dietsHasRecipe);
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    public function getUserRecipePreferences(): Collection
+    {
+        return $this->user_recipe_preferences;
+    }
+
+    public function addUserRecipePreference(User $user_recipe_preference): static
+    {
+        if (!$this->user_recipe_preferences->contains($user_recipe_preference)) {
+            $this->user_recipe_preferences->add($user_recipe_preference);
+        }
+
+        return $this;
+    }
+
+    public function removeUserRecipePreference(User $user_recipe_preference): static
+    {
+        $this->user_recipe_preferences->removeElement($user_recipe_preference);
 
         return $this;
     }
