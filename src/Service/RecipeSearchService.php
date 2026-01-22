@@ -27,7 +27,7 @@ class RecipeSearchService
         $frigoIngredients = $ingredientsData['frigo'];
         $formIngredients = $ingredientsData['form'];
         $allIngredients = array_merge($frigoIngredients, $formIngredients);
-
+        $servings = (int) $request->query->get('servings', 4);
         // Préparer les données pour l'API externe
         $searchData = [
             'blacklist_ids' => $blacklistIds,
@@ -35,6 +35,7 @@ class RecipeSearchService
             'frigo_ingredients' => $frigoIngredients,
             'form_ingredients' => $formIngredients,
             'all_ingredients' => $allIngredients,
+            'servings' => $servings,
         ];
 
         // Envoyer les données à l'API externe
